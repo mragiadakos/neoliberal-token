@@ -8,3 +8,4 @@ node_modules
 #Hardhat files
 cache
 src/artifacts
+bin/contracts

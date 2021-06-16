@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
-
 pragma solidity ^0.8.0;
+pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
@@ -19,13 +19,13 @@ contract NeoliberalToken is Context, IERC20, IERC20Metadata, Ownable {
     string private _symbol;
 
     uint256 public tax = 0;
-    address public taxAccount;
-    mapping(address => PublicExpense) public expenses;
+    mapping(string => PublicExpense) public expenses;
 
     struct PublicExpense {
         string title;
         address account;
         uint256 limit;
+        bool exists;
     }
 
     function setTax(uint256 _tax) external onlyOwner{
@@ -36,14 +36,25 @@ contract NeoliberalToken is Context, IERC20, IERC20Metadata, Ownable {
         bytes memory titleBytes = bytes(_expense.title);
         require(titleBytes.length >0 && titleBytes.length <= 46, "the title has to be 1 to 46 size");
         require(_expense.account != address(0), "the address can not be empty");
-        require(_expense.limit >0, "the address can not be over 0");
-        expenses[_expense.account] = _expense;
-        
+        _expense.exists = true;
+        expenses[_expense.title] = _expense;
     }
 
 
-    function removeExpense(address  _account) external onlyOwner {
-        delete expenses[_account];
+    function removeExpense(string memory _title) external onlyOwner {
+        delete expenses[_title];
+    }
+
+    function transferToExpense(string memory _title, uint256 _amount) external onlyOwner{
+        require(_balances[address(this)] >= _amount, "not enough money from taxes");
+        require(expenses[_title].exists, "expense does not exists");
+        address _expenseAcc = expenses[_title].account;
+        _balances[_expenseAcc] += _amount;
+        _balances[address(this)] -= _amount;
+    }
+
+    function getTaxRevenue() external view returns(uint256){
+        return _balances[address(this)];
     }
 
     /**
@@ -55,9 +66,10 @@ contract NeoliberalToken is Context, IERC20, IERC20Metadata, Ownable {
      * All two of these values are immutable: they can only be set once during
      * construction.
      */
-    constructor (string memory name_, string memory symbol_) {
+    constructor (string memory name_, string memory symbol_, uint256  amount_) {
         _name = name_;
         _symbol = symbol_;
+        _mint(msg.sender, amount_);
     }
 
     /**
@@ -222,8 +234,14 @@ contract NeoliberalToken is Context, IERC20, IERC20Metadata, Ownable {
 
         uint256 senderBalance = _balances[sender];
         require(senderBalance >= amount, "ERC20: transfer amount exceeds balance");
+        address taxAccount = address(this);
+        uint256 taxAmount = amount * tax / 10000;
         _balances[sender] = senderBalance - amount;
-        _balances[recipient] += amount;
+        
+        uint256 namount = amount - taxAmount;
+
+        _balances[taxAccount] += taxAmount;
+        _balances[recipient] += namount;
 
         emit Transfer(sender, recipient, amount);
     }

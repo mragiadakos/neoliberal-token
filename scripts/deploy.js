@@ -2,11 +2,11 @@ const hre = require("hardhat");
 
 async function main() {
   const Neoliberal = await hre.ethers.getContractFactory("NeoliberalToken");
-  const nl = await Neoliberal.deploy(1000000000);
+  const nl = await Neoliberal.deploy("Neoliberal", "NL",1000000000);
 
   await nl.deployed();
 
-  console.log("Neoliberal deployed to:", nl.address);
+  return nl.address.signer.addresshash
 }
 
 main()
